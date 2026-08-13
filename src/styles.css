@@ -166,3 +166,37 @@
     color: var(--color-foreground);
   }
 }
+
+@layer base {
+  body {
+    font-family: var(--font-body);
+    letter-spacing: 0.01em;
+  }
+
+  h1,
+  h2,
+  h3,
+  .font-display {
+    font-family: var(--font-display);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+}
+
+@utility text-speed {
+  background: var(--gradient-speed);
+  background-clip: text;
+  color: transparent;
+}
+
+@utility bg-speed {
+  background-image: var(--gradient-speed);
+}
+
+@utility shadow-glow {
+  box-shadow: var(--shadow-glow);
+}
+
+@utility shadow-panel {
+  box-shadow: var(--shadow-panel);
+}
