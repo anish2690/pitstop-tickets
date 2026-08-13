@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { Check, ChevronLeft, Flag, MapPin, Minus, Plus, Ticket, Timer } from "lucide-react";
 
 import heroImage from "@/assets/f1-hero.jpg";
+import { SeatMap, seatBlocksByStand, seatLabel } from "@/components/seat-map";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
