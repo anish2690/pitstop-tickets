@@ -143,12 +143,14 @@ const extras: Extra[] = [
   { id: "merch", name: "Team Merch Bundle", note: "Cap, lanyard, programme", price: 80 },
 ];
 
-const steps = ["Race", "Grandstand", "Extras", "Checkout"];
+const steps = ["Race", "Grandstand", "Seats", "Extras", "Checkout"];
 
 function BookingFunnel() {
   const [step, setStep] = useState(0);
   const [raceId, setRaceId] = useState<string | null>(null);
   const [standId, setStandId] = useState<string | null>(null);
+  const [blockId, setBlockId] = useState<string | null>(null);
+  const [seats, setSeats] = useState<string[]>([]);
   const [qty, setQty] = useState(2);
   const [chosenExtras, setChosenExtras] = useState<string[]>([]);
   const [insurance, setInsurance] = useState(true);
@@ -156,18 +158,53 @@ function BookingFunnel() {
 
   const race = races.find((r) => r.id === raceId) ?? null;
   const stand = stands.find((s) => s.id === standId) ?? null;
+  const blocks = standId ? (seatBlocksByStand[standId] ?? []) : [];
+  const assignedSeating = blocks.length > 0;
 
   const total = useMemo(() => {
     if (!race || !stand) return 0;
-    const seats = (race.from + stand.price) * qty;
+    const seatFee = blocks.find((b) => b.id === blockId)?.premium ? 60 : 0;
+    const seatsCost = (race.from + stand.price + seatFee) * qty;
     const addOns = extras
       .filter((e) => chosenExtras.includes(e.id))
       .reduce((sum, e) => sum + e.price * qty, 0);
     const cover = insurance ? 29 * qty : 0;
-    return seats + addOns + cover;
-  }, [race, stand, qty, chosenExtras, insurance]);
+    return seatsCost + addOns + cover;
+  }, [race, stand, blocks, blockId, qty, chosenExtras, insurance]);
 
-  const canContinue = step === 0 ? !!race : step === 1 ? !!stand : true;
+  const canContinue =
+    step === 0
+      ? !!race
+      : step === 1
+        ? !!stand
+        : step === 2
+          ? !assignedSeating || (!!blockId && seats.length === qty)
+          : true;
+
+  const selectStand = (id: string) => {
+    setStandId(id);
+    setBlockId(null);
+    setSeats([]);
+  };
+
+  const selectBlock = (id: string) => {
+    setBlockId(id);
+    setSeats([]);
+  };
+
+  const changeQty = (next: number) => {
+    setQty(next);
+    setSeats((prev) => prev.slice(0, next));
+  };
+
+  const toggleSeat = (seatId: string) =>
+    setSeats((prev) =>
+      prev.includes(seatId)
+        ? prev.filter((s) => s !== seatId)
+        : prev.length >= qty
+          ? prev
+          : [...prev, seatId],
+    );
 
   const toggleExtra = (id: string) =>
     setChosenExtras((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -195,8 +232,8 @@ function BookingFunnel() {
             Book your seat on the <span className="text-speed">grid</span>
           </h1>
           <p className="mt-5 max-w-xl text-lg text-muted-foreground">
-            Twenty-four race weekends. Four steps to lock in your grandstand, your extras and your
-            paddock access.
+            Twenty-four race weekends. Five steps to lock in your grandstand, your exact seats and
+            your paddock access.
           </p>
           <div className="mt-8 flex flex-wrap gap-6 font-display text-sm tracking-wide uppercase">
             <span className="flex items-center gap-2">
@@ -290,7 +327,7 @@ function BookingFunnel() {
                     <button
                       key={s.id}
                       type="button"
-                      onClick={() => setStandId(s.id)}
+                      onClick={() => selectStand(s.id)}
                       className={`w-full rounded-lg border bg-card p-5 text-left transition-all ${
                         active ? "border-primary shadow-glow" : "border-border"
                       }`}
@@ -328,7 +365,7 @@ function BookingFunnel() {
                     <Button
                       variant="secondary"
                       size="icon"
-                      onClick={() => setQty((q) => Math.max(1, q - 1))}
+                      onClick={() => changeQty(Math.max(1, qty - 1))}
                       aria-label="Remove ticket"
                     >
                       <Minus className="size-4" />
@@ -337,7 +374,7 @@ function BookingFunnel() {
                     <Button
                       variant="secondary"
                       size="icon"
-                      onClick={() => setQty((q) => Math.min(6, q + 1))}
+                      onClick={() => changeQty(Math.min(6, qty + 1))}
                       aria-label="Add ticket"
                     >
                       <Plus className="size-4" />
@@ -345,6 +382,76 @@ function BookingFunnel() {
                   </div>
                 </div>
 
+                {!assignedSeating ? (
+                  <div className="rounded-lg border border-border bg-card p-6">
+                    <h3 className="text-lg uppercase">Unreserved seating</h3>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      {stand?.name} is walkabout access — no seat numbers are assigned. Upgrade to a
+                      grandstand if you'd like to pick exact seats.
+                    </p>
+                    <Button variant="secondary" className="mt-4" onClick={() => setStep(1)}>
+                      Change grandstand
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="rounded-lg border border-border bg-card p-5">
+                      <h3 className="text-lg uppercase">Choose your section</h3>
+                      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                        {blocks.map((b) => {
+                          const active = b.id === blockId;
+                          return (
+                            <button
+                              key={b.id}
+                              type="button"
+                              onClick={() => selectBlock(b.id)}
+                              className={`rounded-lg border p-4 text-left transition-colors ${
+                                active ? "border-primary bg-primary/10" : "border-border bg-card"
+                              }`}
+                            >
+                              <span className="font-display block text-base uppercase">
+                                {b.name}
+                              </span>
+                              <span className="text-sm text-muted-foreground">{b.note}</span>
+                              <span className="font-display mt-2 block text-sm text-primary">
+                                {b.premium ? "+$60 / seat" : "no extra fee"}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {blockId && (
+                      <div className="rounded-lg border border-border bg-card p-5">
+                        <div className="flex flex-wrap items-baseline justify-between gap-2">
+                          <h3 className="text-lg uppercase">Pick {qty} seats</h3>
+                          <span className="font-display text-sm tracking-widest text-muted-foreground uppercase">
+                            {seats.length} / {qty} selected
+                          </span>
+                        </div>
+                        <div className="mt-4">
+                          <SeatMap
+                            blockId={blockId}
+                            selected={seats}
+                            onToggle={toggleSeat}
+                            maxSeats={qty}
+                          />
+                        </div>
+                        {seats.length > 0 && (
+                          <p className="mt-4 text-sm text-muted-foreground">
+                            Your seats: {seats.map(seatLabel).join(", ")}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+
+            {step === 3 && (
+              <div className="space-y-4">
                 {extras.map((e) => {
                   const active = chosenExtras.includes(e.id);
                   return (
@@ -390,7 +497,7 @@ function BookingFunnel() {
               </div>
             )}
 
-            {step === 3 && !confirmed && (
+            {step === 4 && !confirmed && (
               <form
                 className="space-y-5 rounded-lg border border-border bg-card p-6"
                 onSubmit={(ev) => {
@@ -431,7 +538,7 @@ function BookingFunnel() {
               </form>
             )}
 
-            {step === 3 && confirmed && (
+            {step === 4 && confirmed && (
               <div className="rounded-lg border border-primary bg-card p-8 text-center shadow-glow">
                 <span className="bg-speed mx-auto flex size-14 items-center justify-center rounded-full">
                   <Check className="size-7 text-primary-foreground" />
@@ -440,6 +547,11 @@ function BookingFunnel() {
                 <p className="mt-3 text-muted-foreground">
                   {qty} × {stand?.name} for the {race?.gp}. E-tickets are on their way to your inbox.
                 </p>
+                {seats.length > 0 && (
+                  <p className="font-display mt-3 text-sm tracking-widest uppercase">
+                    Seats {seats.map(seatLabel).join(" · ")}
+                  </p>
+                )}
                 <p className="font-display mt-6 text-sm tracking-widest text-muted-foreground uppercase">
                   Booking ref APX-{race?.id.slice(0, 3).toUpperCase()}-2027
                 </p>
@@ -455,12 +567,12 @@ function BookingFunnel() {
                 >
                   <ChevronLeft className="size-4" /> Back
                 </Button>
-                {step < 3 && (
+                {step < 4 && (
                   <Button
                     size="lg"
                     className="bg-speed border-0 shadow-glow"
                     disabled={!canContinue}
-                    onClick={() => setStep((s) => Math.min(3, s + 1))}
+                    onClick={() => setStep((s) => Math.min(4, s + 1))}
                   >
                     Continue
                   </Button>
@@ -477,6 +589,26 @@ function BookingFunnel() {
               <Row label="Grand Prix" value={race ? race.gp : "Not selected"} />
               <Row label="Dates" value={race ? race.dates : "—"} />
               <Row label="Grandstand" value={stand ? stand.name : "Not selected"} />
+              <Row
+                label="Section"
+                value={
+                  !stand
+                    ? "—"
+                    : !assignedSeating
+                      ? "Unreserved"
+                      : (blocks.find((b) => b.id === blockId)?.name ?? "Not selected")
+                }
+              />
+              <Row
+                label="Seats"
+                value={
+                  !assignedSeating
+                    ? "General admission"
+                    : seats.length
+                      ? seats.map(seatLabel).join(", ")
+                      : "Not selected"
+                }
+              />
               <Row label="Tickets" value={`${qty}`} />
               <Row
                 label="Extras"
@@ -509,3 +641,4 @@ function Row({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
