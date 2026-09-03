@@ -9,6 +9,7 @@ import {
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 
+import { Toaster } from "@/components/ui/sonner";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 
@@ -126,8 +127,38 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <Header />
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
+      <Toaster />
     </QueryClientProvider>
+  );
+}
+
+function Header() {
+  return (
+    <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+        <Link to="/" className="font-display text-xl uppercase tracking-tight">
+          Apex <span className="text-speed">GP</span>
+        </Link>
+        <nav className="flex items-center gap-6">
+          <Link
+            to="/"
+            activeProps={{ className: "text-foreground" }}
+            className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Book tickets
+          </Link>
+          <Link
+            to="/contact"
+            activeProps={{ className: "text-foreground" }}
+            className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Contact
+          </Link>
+        </nav>
+      </div>
+    </header>
   );
 }
